@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from tools import equatorial_to_cartesian,cartesian_to_equatorial
+from src.tools import equatorial_to_cartesian,cartesian_to_equatorial
 
 
 def add_radian_columns(df:pd.DataFrame)->None:
@@ -65,7 +65,7 @@ def add_CoM(df:pd.DataFrame,galaxy1:str,galaxy2:str,m1_barre:float,row_name:str)
     # Attention:  the new velocity is not necesseraly radial
     new_Rad_velocity = np.dot(Vc,rc)/ np.linalg.norm(rc)
     
-    row_name = "CoM_"+galaxy1+"_"+galaxy2+"_"+str(m1_barre)
+
     if not df['Name'].isin([row_name]).any():
         new_row = {'Name' :row_name, 'RAh':None, 'RAm':None, 'RAs':None, 'DE-':None, 'DEd':None, 'DEm':None, 'DEs':None, 'T':None, 'Theta':None, 'VLG':new_Rad_velocity, 'e_VLG':None, 'Dis':new_coord[0], 'e_Dis':None, 'f_Dis':None, 'Ref':None, 'Note':None, 'RA_degrees':None, 'RA_radians':new_coord[1], 'Dec_degrees':None, 'Dec_radians': new_coord[2]}    
         df.loc[len(df)] = new_row
@@ -98,8 +98,8 @@ def add_angular_distance(df:pd.DataFrame,galaxy_center:str)->None:
     # Calculer cos(θ)
     cos_theta = sin_dec_1 * sin_dec_2 + cos_dec_1 * cos_dec_2 * cos_ra_diff
     # Ajouter la colonne au DataFrame
-    df["cos_theta"]= cos_theta
-    df['angular_distance'] = np.arccos(cos_theta)
+    df["cos_theta_"+galaxy_center]= cos_theta
+    df['angular_distance_'+galaxy_center] = np.arccos(cos_theta)
 
 def add_distances(df:pd.DataFrame,galaxy_center:str)->None:
     """add a new row to the galaxy dataframe containing distances between all the galaxies and a given galaxy_center 
@@ -110,9 +110,9 @@ def add_distances(df:pd.DataFrame,galaxy_center:str)->None:
     """
     distance_center= float(df.loc[df["Name"]==galaxy_center,"Dis"].iloc[0])
     # Calculer distance
-    dis_center = np.square(df['Dis']) + np.square(distance_center) - 2 * distance_center * df["Dis"] * df["cos_theta"]
+    dis_center = np.square(df['Dis']) + np.square(distance_center) - 2 * distance_center * df["Dis"] * df["cos_theta_"+galaxy_center]
     # Ajouter la colonne au DataFrame
-    df['dis_center'] = np.sqrt(dis_center)
+    df['dis_center_'+galaxy_center] = np.sqrt(dis_center)
 
 
 
@@ -133,7 +133,7 @@ def add_minor_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
     
     ## fonction to calculate minor velocities
     def calculate_minor_infall(row):
-        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta'], row['dis_center']
+        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta_'+galaxy_center], row['dis_center_'+galaxy_center]
 
         if rgcenter == 0:
             return 0  # prevent zero division
@@ -142,7 +142,7 @@ def add_minor_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
         return numerator / rgcenter
 
     # caculate minor_infall_velocities Ajouter la colonne au DataFrame
-    df['minor_infall_velocity'+galaxy_center] = df.apply(calculate_minor_infall, axis=1)
+    df['minor_infall_velocity_'+galaxy_center] = df.apply(calculate_minor_infall, axis=1)
 
 def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
     """add a new row containing the new velocity regarding the galaxy center using the major infall model on the center_galaxy
@@ -157,7 +157,7 @@ def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
     
     ## fonction to calculate minor velocities
     def calculate_major_infall(row):
-        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta'], row['dis_center']
+        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta_'+galaxy_center], row['dis_center_'+galaxy_center]
         numerator = vg - velocity_center * cos_theta
         denominator = rg - distance_center * cos_theta
 
@@ -168,7 +168,7 @@ def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
         return (numerator / denominator) * rgcenter
 
     # caculate minor_infall_velocities Ajouter la colonne au DataFrame
-    df['major_infall_velocity'+galaxy_center] = df.apply(calculate_major_infall, axis=1)
+    df['major_infall_velocity_'+galaxy_center] = df.apply(calculate_major_infall, axis=1)
     
 def add_major_infall_velocity_bis(df:pd.DataFrame,galaxy_center:str)->None:
     """add a new row containing the new velocity regarding the galaxy center using the major infall model on the second galaxy
@@ -183,7 +183,7 @@ def add_major_infall_velocity_bis(df:pd.DataFrame,galaxy_center:str)->None:
     
     ## fonction to calculate minor velocities
     def calculate_major_infall_bis(row):
-        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta'], row['dis_center']
+        rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta_'+galaxy_center], row['dis_center_'+galaxy_center]
         numerator = velocity_center - vg * cos_theta
         denominator =  distance_center - rg * cos_theta
 
@@ -194,7 +194,7 @@ def add_major_infall_velocity_bis(df:pd.DataFrame,galaxy_center:str)->None:
         return (numerator / denominator) * rgcenter
 
     # caculate minor_infall_velocities Ajouter la colonne au DataFrame
-    df['major_infall_velocity_bis'+galaxy_center] = df.apply(calculate_major_infall_bis, axis=1)
+    df['major_infall_velocity_bis_'+galaxy_center] = df.apply(calculate_major_infall_bis, axis=1)
     
     
 def new_CoM_procedure(df,galaxy1,galaxy2,m1_barre,row_name:str=None):
@@ -206,3 +206,4 @@ def new_CoM_procedure(df,galaxy1,galaxy2,m1_barre,row_name:str=None):
     add_major_infall_velocity(df,galaxy_center=row_name)
     add_minor_infall_velocity(df,galaxy_center=row_name)
     add_major_infall_velocity_bis(df,galaxy_center=row_name)
+    print(row_name)

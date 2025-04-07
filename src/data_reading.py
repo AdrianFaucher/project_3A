@@ -45,6 +45,6 @@ def parse_galaxy_data(file_path:str)->pd.DataFrame:
 
     # Convert to DataFrame
     df = pd.DataFrame(galaxies)
-    df[df["VLG"] != '']
-    df[df["Dis"] != '']
+    df = df[df["VLG"] != '']
+    df = df[df["Dis"] != '']
     return df

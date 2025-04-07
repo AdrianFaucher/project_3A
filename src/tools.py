@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def cartesian_to_equatorial(x: float, y: float, z: float)->np.ndarray:
     """convert cartesians coordinates to equatorial coordinates
@@ -33,3 +34,11 @@ def equatorial_to_cartesian(r: float, alpha:float, delta:float)->np.ndarray[floa
     y = r * np.cos(delta) * np.sin(alpha)
     z = r * np.sin(delta)
     return np.array([x,y,z])
+
+def mean_square_peculiar_velocity(df, column):
+    mask = ~df['Name'].str.startswith('CoM_')
+    filtered = df[(df[column] >= -100) & (df[column] <= 500)]
+    return (filtered[mask][column] ** 2).mean()
+# 
+# def mean_square_peculiar_velocity(df,column):
+#     return (df[column] ** 2).mean()

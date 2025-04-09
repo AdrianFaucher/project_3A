@@ -12,7 +12,8 @@ def display_hubble_MW(df:pd.DataFrame)->None:
     Args:
         df (pd.DataFrame): DataFrame containing the galaxies
     """
-    mask = ~df['Name'].str.startswith('CoM_')
+    mask = ~df['Name'].str.startswith('CoM_'))
+    # mask = ((df['f_Dis']== "h") & ~df['Name'].str.startswith('CoM_'))
     x_series = pd.to_numeric(df.loc[mask, 'Dis'], errors='coerce')
     y_series = pd.to_numeric(df.loc[mask, 'VLG'], errors='coerce')
     
@@ -50,7 +51,7 @@ def display_velocities_distance(df,velocities:list[str],row_name:str,border:bool
         axes = [axes]
 
     for i, ax in enumerate(axes):
-        ax.scatter(df[mask]['dis_center_'+row_name], df[mask][velocities[i]+"_"+row_name], color='b', label=r'$v_{r,\text{"+velocities[i]+r"}}$') # Tracé des points
+        ax.scatter(df[mask]['dis_center_'+row_name], df[mask][velocities[i]+"_"+row_name], color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$") # Tracé des points
         ax.set_xlabel("Distance from "+row_name+" (Mpc)")
         ax.set_ylabel(r"$v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
         ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
@@ -160,3 +161,50 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
 
     plt.tight_layout()
     plt.show()
+    
+def display_velocities_distance_hubble_regression(df,velocities:list[str],row_name:str,border:bool=False,force_origin:bool=True):
+    mask = ~df['Name'].str.startswith('CoM_')
+
+    n=len(velocities)
+    fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))  # ajusted size for the number of subplot
+
+    # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
+    if n == 1:
+        axes = [axes]
+
+    for i, ax in enumerate(axes):
+        mask2 = (
+        (df['dis_center_'+row_name] >= 1) &
+        (df[velocities[i]+"_"+row_name] >= -100) & (df[velocities[i]+"_"+row_name] <= 350) &
+        ~df['Name'].str.startswith('CoM_')
+        )
+        
+        ax.scatter(df[mask]['dis_center_'+row_name], df[mask][velocities[i]+"_"+row_name], color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$") # Tracé des points
+        
+        # regression linéaire
+        x = pd.to_numeric(df.loc[mask, 'dis_center_'+row_name], errors='coerce').values
+        y = pd.to_numeric(df.loc[mask, velocities[i]+"_"+row_name], errors='coerce').values
+        # trace de la regression
+        if force_origin:
+            A = x.reshape(-1, 1)
+            a = np.linalg.lstsq(A, y, rcond=None)[0][0]
+            b = 0
+        else:
+            A = np.vstack([x, np.ones(len(x))]).T
+            a, b = np.linalg.lstsq(A, y, rcond=None)[0]
+        x_vals = np.linspace(x.min(), x.max(), 100)
+        y_vals = a * x_vals + b
+        ax.plot(x_vals, y_vals, 'r--', label=f"$H_0 = {a:.2f}\\, \\text{{km.s}}^{{-1}}\\text{{.Mpc}}^{{-1}}$")
+
+        
+        ax.set_xlabel("Distance from "+row_name+" (Mpc)")
+        ax.set_ylabel(r"$v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
+        ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
+        ax.legend()
+        ax.grid(True)
+        ax.set_xlim(0, 5)  # Limites de l'axe x entre 1 et 5
+        ax.set_ylim(-100, 500)  # Limites de l'axe y entre -25 et 20
+
+    plt.tight_layout()
+    plt.show()
+    

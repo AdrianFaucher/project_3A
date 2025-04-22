@@ -52,10 +52,16 @@ def add_CoM(df:pd.DataFrame,galaxy1:str,galaxy2:str,m1_barre:float,row_name:str)
     d1, ra1, dec1, v1 = float(df.loc[df["Name"]==galaxy1,"Dis"].iloc[0]), float(df.loc[df["Name"]==galaxy1,"RA_radians"].iloc[0]), float(df.loc[df["Name"]==galaxy1,"Dec_radians"].iloc[0]), float(df.loc[df["Name"]==galaxy1,"VLG"].iloc[0])
     
     d2, ra2, dec2, v2 = float(df.loc[df["Name"]==galaxy2,"Dis"].iloc[0]), float(df.loc[df["Name"]==galaxy2,"RA_radians"].iloc[0]), float(df.loc[df["Name"]==galaxy2,"Dec_radians"].iloc[0]), float(df.loc[df["Name"]==galaxy2,"VLG"].iloc[0])
+    
+    e_d1, e_d2, e_v1, e_v2 =float(df.loc[df["Name"]==galaxy1,"e_Dis"].iloc[0]), float(df.loc[df["Name"]==galaxy2,"e_Dis"].iloc[0]) ,float(df.loc[df["Name"]==galaxy1,"e_VLG"].iloc[0]), float(df.loc[df["Name"]==galaxy2,"e_VLG"].iloc[0])
+    
+    
     r1 = equatorial_to_cartesian(d1,ra1,dec1)
     r2 = equatorial_to_cartesian(d2,ra2,dec2)
     rc = m1_barre*r1 + m2_barre*r2
     new_coord = cartesian_to_equatorial(rc[0],rc[1],rc[2])
+    
+    e_dist = m1_barre * e_d1 + (1-m1_barre) * e_d2
     
     V1 = equatorial_to_cartesian(v1,ra1,dec1)
     V2 = equatorial_to_cartesian(v2,ra2,dec2)
@@ -65,9 +71,10 @@ def add_CoM(df:pd.DataFrame,galaxy1:str,galaxy2:str,m1_barre:float,row_name:str)
     # Attention:  the new velocity is not necesseraly radial
     new_Rad_velocity = np.dot(Vc,rc)/ np.linalg.norm(rc)
     
+    e_new_Rad_velocity =  m1_barre * e_v1 + m2_barre * e_v2
 
     if not df['Name'].isin([row_name]).any():
-        new_row = {'Name' :row_name, 'RAh':None, 'RAm':None, 'RAs':None, 'DE-':None, 'DEd':None, 'DEm':None, 'DEs':None, 'T':None, 'Theta':None, 'VLG':new_Rad_velocity, 'e_VLG':None, 'Dis':new_coord[0], 'e_Dis':None, 'f_Dis':None, 'Ref':None, 'Note':None, 'RA_degrees':None, 'RA_radians':new_coord[1], 'Dec_degrees':None, 'Dec_radians': new_coord[2]}    
+        new_row = {'Name' :row_name, 'RAh':None, 'RAm':None, 'RAs':None, 'DE-':None, 'DEd':None, 'DEm':None, 'DEs':None, 'T':None, 'Theta':None, 'VLG':new_Rad_velocity, 'e_VLG':e_new_Rad_velocity, 'Dis':new_coord[0], 'e_Dis':e_dist, 'f_Dis':None, 'Ref':None, 'Note':None, 'RA_degrees':None, 'RA_radians':new_coord[1], 'Dec_degrees':None, 'Dec_radians': new_coord[2]}    
         df.loc[len(df)] = new_row
     else:
         df.loc[df['Name'] == row_name, 'Dis' ] = new_coord[0]
@@ -109,10 +116,19 @@ def add_distances(df:pd.DataFrame,galaxy_center:str)->None:
         galaxy_center (str): Name of the galaxy that will be used as the center of the cluster
     """
     distance_center= float(df.loc[df["Name"]==galaxy_center,"Dis"].iloc[0])
+    Rg ,cos_theta = df['Dis'],df["cos_theta_"+galaxy_center]
     # Calculer distance
-    dis_center = np.square(df['Dis']) + np.square(distance_center) - 2 * distance_center * df["Dis"] * df["cos_theta_"+galaxy_center]
+    dis_center = np.sqrt(np.square(Rg) + np.square(distance_center) - 2 * distance_center * Rg * cos_theta)
     # Ajouter la colonne au DataFrame
-    df['dis_center_'+galaxy_center] = np.sqrt(dis_center)
+    df['dis_center_'+galaxy_center] = dis_center
+    
+    # add incertainty
+    e_distance_center = float(df.loc[df["Name"]==galaxy_center,"e_Dis"].iloc[0])
+    e_Rg = df['e_Dis']
+    
+    e_dis_center = (e_Rg * (Rg+ distance_center * np.absolute(cos_theta)) + e_distance_center * (distance_center + Rg * np.absolute(cos_theta)))/dis_center
+    
+    df['e_dis_center_'+galaxy_center] = e_dis_center
 
 
 

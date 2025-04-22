@@ -12,13 +12,16 @@ def display_hubble_MW(df:pd.DataFrame)->None:
     Args:
         df (pd.DataFrame): DataFrame containing the galaxies
     """
-    mask = ~df['Name'].str.startswith('CoM_'))
+    mask = ~df['Name'].str.startswith('CoM_')
     # mask = ((df['f_Dis']== "h") & ~df['Name'].str.startswith('CoM_'))
     x_series = pd.to_numeric(df.loc[mask, 'Dis'], errors='coerce')
     y_series = pd.to_numeric(df.loc[mask, 'VLG'], errors='coerce')
     
     plt.figure(figsize=(8, 5))
-    plt.scatter(x_series, y_series, color='b')
+    # errors 
+    e_x_series = pd.to_numeric(df.loc[mask, 'e_Dis'], errors='coerce')
+    e_y_series = pd.to_numeric(df.loc[mask, 'e_VLG'], errors='coerce')
+    plt.errorbar(x_series, y_series, xerr=e_x_series, yerr=e_y_series, fmt='none', ecolor='black', elinewidth=0.8, capsize=3, marker='x', markersize=8)
 
     # Linear regression
     x = x_series.values

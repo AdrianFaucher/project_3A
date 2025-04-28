@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from IPython.display import HTML
-from src.tools import mean_square_peculiar_velocity
+from src.tools import mean_square_peculiar_velocity, identify_abnormal_galaxies_per_velocity, mean_square_peculiar_velocity_consistent
 
 def display_hubble_MW(df:pd.DataFrame)->None:
     """Display the velocities of galaxies depending on the distance from the milky way
@@ -37,9 +37,9 @@ def display_hubble_MW(df:pd.DataFrame)->None:
     plt.plot(x_vals, y_vals, 'r--', label=f"$H_0 = {a[0]:.2f}\\, \\text{{km.s}}^{{-1}}\\text{{.Mpc}}^{{-1}}$")
 
     # Affichage
-    plt.xlabel("Distance from milky way (Mpc)")
+    plt.xlabel("Distance from LG CoM (Mpc)")
     plt.ylabel(r"Radial velocity (km/s)")
-    plt.title("Radial velocity depending on distance from Milky way")
+    plt.title("Radial velocity depending on distance from LG CoM")
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -48,7 +48,7 @@ def display_velocities_distance(df,velocities:list[str],row_name:str,border:bool
     mask = ~df['Name'].str.startswith('CoM_')
     n=len(velocities)
     fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))  # ajusted size for the number of subplot
-
+    affichage=['o','v']
     # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
     if n == 1:
         axes = [axes]
@@ -71,13 +71,14 @@ def display_velocities_distance_color(df, velocities: list[str], row_name: str, 
     plt.figure(figsize=(12, 6))
 
     colors = plt.cm.get_cmap('tab10', len(velocities))  # Palette de couleurs
-
+    markers=['o','v','s']
     for i, velocity in enumerate(velocities):
         plt.scatter(
             df[mask]['dis_center_' + row_name],
             df[mask][velocity + "_" + row_name],
             color=colors(i),
-            label=r"$v_{r,\text{" + velocity + r"}}$"
+            label=r"$v_{r,\text{" + velocity + r"}}$",
+            marker=markers[i%3]
         )
 
     plt.xlabel("Distance from " + row_name + " (Mpc)")
@@ -154,7 +155,7 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
     for i, ax in enumerate(axes):
         mean_square_values=[0 for r in mass_ratios]
         for k in range(0,len(mass_ratios)):
-            mean_square_values[k] = mean_square_peculiar_velocity(df,velocities[i]+"_"+partial_row_name+"_"+str(mass_ratios[k]))
+            mean_square_values[k] = np.sqrt(mean_square_peculiar_velocity(df,velocities[i]+"_"+partial_row_name+"_"+str(mass_ratios[k])))
         ax.plot(mass_ratios, mean_square_values, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
         ax.set_xlabel("m1 barre")
         ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
@@ -164,6 +165,60 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
 
     plt.tight_layout()
     plt.show()
+    
+
+def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partial_row_name, lower_bound=-100, upper_bound=500):
+    n = len(velocities)
+    fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))
+    
+    # Dictionnaire pour stocker les valeurs minimales
+    min_values = {}
+    
+    # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
+    if n == 1:
+        axes = [axes]
+
+    for i, ax in enumerate(axes):
+        # Pour chaque type de vitesse, identifier les galaxies anormales
+        abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound)
+        print(f"Nombre de galaxies exclues pour {velocities[i]}: {len(abnormal_galaxies)}")
+        
+        mean_square_values = []
+        for mass_ratio in mass_ratios:
+            column = f"{velocities[i]}_{partial_row_name}_{mass_ratio}"
+            mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
+            mean_square_values.append(np.sqrt(mean_square))
+        
+        # Trouver le ratio de masse qui donne la valeur minimale
+        min_index = np.argmin(mean_square_values)
+        min_mass_ratio = mass_ratios[min_index]
+        min_value = mean_square_values[min_index]
+        
+        # Stocker dans le dictionnaire
+        min_values[velocities[i]] = {
+            "mass_ratio": min_mass_ratio,
+            "mean_square_value": min_value
+        }
+        
+        # Marquer le minimum sur le graphique
+        ax.plot(mass_ratios, mean_square_values, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
+        ax.plot(min_mass_ratio, min_value, 'ro', markersize=8, label=f"Min: {min_mass_ratio:.2f}")
+        
+        ax.set_xlabel("m1 barre")
+        ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
+        ax.set_title(r"Mean-square of $V_{r,\text{"+velocities[i]+r"}}$ depending on m1_barre")
+        ax.legend()
+        ax.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+    
+    # Afficher un résumé des valeurs minimales
+    print("\nRésumé des valeurs minimales pour chaque vitesse:")
+    for velocity, info in min_values.items():
+        print(f"Vitesse {velocity}: Ratio de masse optimal = {info['mass_ratio']:.4f}, Valeur minimale = {info['mean_square_value']:.2f} km/s")
+    
+    return min_values
     
 def display_velocities_distance_hubble_regression(df,velocities:list[str],row_name:str,border:bool=False,force_origin:bool=True):
     mask = ~df['Name'].str.startswith('CoM_')

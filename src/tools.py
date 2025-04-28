@@ -42,3 +42,21 @@ def mean_square_peculiar_velocity(df, column):
 # 
 # def mean_square_peculiar_velocity(df,column):
 #     return (df[column] ** 2).mean()
+
+def identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound=-100, upper_bound=500):
+    """Identifie les galaxies qui ont une vitesse anormale pour n'importe quel ratio de masse, pour un type de vitesse donné"""
+    abnormal_galaxies = set()
+    
+    for mass_ratio in mass_ratios:
+        column = f"{velocity}_{partial_row_name}_{mass_ratio}"
+        mask = ~df['Name'].str.startswith('CoM_')  # Exclut les centres de masse
+        # Identifie les galaxies avec des vitesses anormales
+        abnormal = df[mask & ((df[column] < lower_bound) | (df[column] > upper_bound))]['Name']
+        abnormal_galaxies.update(abnormal)
+    
+    return abnormal_galaxies
+
+def mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies):
+    """Calcule la moyenne des carrés des vitesses en excluant les galaxies anormales"""
+    mask = (~df['Name'].str.startswith('CoM_')) & (~df['Name'].isin(abnormal_galaxies))
+    return (df[mask][column] ** 2).mean()

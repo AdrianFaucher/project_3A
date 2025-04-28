@@ -147,18 +147,39 @@ def add_minor_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
     distance_center= float(df.loc[df["Name"]==galaxy_center,"Dis"].iloc[0])
     velocity_center = float(df.loc[df["Name"]==galaxy_center,"VLG"].iloc[0])
     
+    e_distance_center = float(df.loc[df["Name"] == galaxy_center, "e_Dis"].iloc[0])
+    e_velocity_center = float(df.loc[df["Name"] == galaxy_center, "e_VLG"].iloc[0])
+    
     ## fonction to calculate minor velocities
     def calculate_minor_infall(row):
         rg, vg, cos_theta, rgcenter = row['Dis'], row['VLG'], row['cos_theta_'+galaxy_center], row['dis_center_'+galaxy_center]
+        e_rg, e_vg, e_rgcenter = row['e_Dis'],row['e_VLG'],row['e_dis_center_' + galaxy_center]
 
+        
         if rgcenter == 0:
             return 0  # prevent zero division
-
+        
         numerator = (velocity_center * distance_center + vg * rg) - cos_theta* (vg * distance_center + velocity_center * rg)
-        return numerator / rgcenter
+        v_rad=numerator / rgcenter
+        
+        
+        e_r1_barre = (rg*e_rgcenter+e_rg*rgcenter)/(rgcenter**2)
+        e_r2_barre = (distance_center*e_rgcenter+e_distance_center*rgcenter)/(rgcenter**2)
 
-    # caculate minor_infall_velocities Ajouter la colonne au DataFrame
-    df['minor_infall_velocity_'+galaxy_center] = df.apply(calculate_minor_infall, axis=1)
+        
+        e_v_rad = (e_velocity_center * (distance_center + rg              * cos_theta)/rgcenter +
+                  e_vg              * (rg              + distance_center * cos_theta)/rgcenter + 
+                  e_distance_center * (velocity_center + vg              * cos_theta)          +
+                  e_rg              * (vg              + velocity_center * cos_theta)
+        )
+        
+        return pd.Series([v_rad,e_v_rad])
+    
+    result = df.apply(calculate_minor_infall, axis=1)
+    df['minor_infall_velocity_' + galaxy_center] = result[0]
+    df['e_minor_infall_velocity_' + galaxy_center] = result[1]
+
+
 
 def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str)->None:
     """add a new row containing the new velocity regarding the galaxy center using the major infall model on the center_galaxy

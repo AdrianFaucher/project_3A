@@ -47,21 +47,41 @@ def display_hubble_MW(df:pd.DataFrame)->None:
 def display_velocities_distance(df,velocities:list[str],row_name:str,border:bool=False,):
     mask = ~df['Name'].str.startswith('CoM_')
     n=len(velocities)
-    fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))  # ajusted size for the number of subplot
+    fig, axes = plt.subplots(n, 1, figsize=(12, 10*n))  # ajusted size for the number of subplot
     affichage=['o','v']
     # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
     if n == 1:
         axes = [axes]
 
     for i, ax in enumerate(axes):
-        ax.scatter(df[mask]['dis_center_'+row_name], df[mask][velocities[i]+"_"+row_name], color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$") # Tracé des points
-        ax.set_xlabel("Distance from "+row_name+" (Mpc)")
-        ax.set_ylabel(r"$v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
-        ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
+        x = pd.to_numeric(df.loc[mask, 'dis_center_'+row_name], errors='coerce').values
+        y = pd.to_numeric(df.loc[mask, velocities[i]+"_"+row_name], errors='coerce').values
+
+
+        col_e_x_max = 'e_max_dis_center_' + row_name
+        col_e_x_min = 'e_min_dis_center_' + row_name
+        col_e_y_max = 'e_max_'+velocities[i]+"_"+ row_name
+        col_e_y_min = 'e_min_'+velocities[i]+"_"+ row_name
+        # col_e_y_max  = 'e_analytic_'+ velocities[i]+"_"+ row_name
+        # col_e_y_min  = 'e_analytic_'+ velocities[i]+"_"+ row_name
+        if col_e_y_max in df.columns and col_e_y_min in df.columns and col_e_x_min in df.columns and col_e_x_max in df.columns:
+            e_x_min = pd.to_numeric(df.loc[mask, col_e_x_min], errors='coerce').values
+            e_x_max = pd.to_numeric(df.loc[mask, col_e_x_max], errors='coerce').values
+            e_y_min = pd.to_numeric(df.loc[mask, col_e_y_min], errors='coerce').values
+            e_y_max = pd.to_numeric(df.loc[mask, col_e_y_max], errors='coerce').values
+            ax.errorbar(x, y, xerr=[e_x_min,e_x_max],yerr=[e_y_min,e_y_max],color="black",markersize=5, fmt='o', capsize=5, ecolor='red')#, label=r"$v_{r,\text{"+velocities[i]+r"}}$ with exact error")
+
+        else:
+            ax.scatter(x, y, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$") # Tracé des points
+        # ax.set_xlabel("Distance from "+row_name+" (Mpc)")
+        # ax.set_ylabel(r"$v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
+        ax.set_xlabel("Distance from CoM (Mpc)")
+        ax.set_ylabel(r"$v_{r}$ (km/s)")
+        # ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
         ax.legend()
         ax.grid(True)
         ax.set_xlim(0, 5)  # Limites de l'axe x entre 1 et 5
-        ax.set_ylim(-100, 500)  # Limites de l'axe y entre -25 et 20
+        ax.set_ylim(-100, 300)  # Limites de l'axe y entre -25 et 20
 
     plt.tight_layout()
     plt.show()
@@ -205,10 +225,11 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
         ax.plot(min_mass_ratio, min_value, 'ro', markersize=8, label=f"Min: {min_mass_ratio:.2f}")
         
         ax.set_xlabel("m1 barre")
-        ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
-        ax.set_title(r"Mean-square of $V_{r,\text{"+velocities[i]+r"}}$ depending on m1_barre")
-        ax.legend()
+        ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)",fontsize=20)
+        ax.set_title(r"Mean-square of $V_{r,\text{"+velocities[i]+r"}}$ depending on m1_barre",fontsize=20)
+        ax.legend(fontsize=20)
         ax.grid(True)
+        
 
     plt.tight_layout()
     plt.show()
@@ -240,8 +261,8 @@ def display_velocities_distance_hubble_regression(df,velocities:list[str],row_na
         ax.scatter(df[mask]['dis_center_'+row_name], df[mask][velocities[i]+"_"+row_name], color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$") # Tracé des points
         
         # regression linéaire
-        x = pd.to_numeric(df.loc[mask, 'dis_center_'+row_name], errors='coerce').values
-        y = pd.to_numeric(df.loc[mask, velocities[i]+"_"+row_name], errors='coerce').values
+        x = pd.to_numeric(df.loc[mask2, 'dis_center_'+row_name], errors='coerce').values
+        y = pd.to_numeric(df.loc[mask2, velocities[i]+"_"+row_name], errors='coerce').values
         # trace de la regression
         if force_origin:
             A = x.reshape(-1, 1)

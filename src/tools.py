@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import itertools
 
 def cartesian_to_equatorial(x: float, y: float, z: float)->np.ndarray:
     """convert cartesians coordinates to equatorial coordinates
@@ -60,3 +61,32 @@ def mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies):
     """Calcule la moyenne des carrés des vitesses en excluant les galaxies anormales"""
     mask = (~df['Name'].str.startswith('CoM_')) & (~df['Name'].isin(abnormal_galaxies))
     return (df[mask][column] ** 2).mean()
+
+
+
+def min_max_grid(f:callable, x0:np.ndarray, dr:np.ndarray, n_steps:int =10)->(float,float):
+    """Évalue f sur une grille dans l'hypercube x0 ± dr, et retourne le min et max.
+
+    Args:
+        f (_type_): fonction à évaluer, qui prend un vecteur en entrée
+        x0 (np.ndarray): vecteur numpy, point central
+        dr (np.ndarrray): vecteur numpy, variation maximale autour de x0 (même taille que x0)
+        n_steps (int, optional): nombre de points à tester par dimension (>=2). Defaults to 100.
+    
+    Retrun:
+        (val_min, val_max) (float,float) : valeurs minimale et maximale de f dans l'hypercube
+    """
+    x0 = np.array(x0)
+    dr = np.array(dr)
+    n = len(x0)
+    
+    axes = [np.linspace(x0[i] - dr[i], x0[i] + dr[i], n_steps) for i in range(n)]
+    
+    points = itertools.product(*axes)
+
+    values = [f(np.array(p)) for p in points]
+    
+    return min(values), max(values)
+
+
+    

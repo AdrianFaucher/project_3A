@@ -187,50 +187,98 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
     plt.show()
     
 
-def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partial_row_name, lower_bound=-100, upper_bound=500):
+
+
+
+def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partial_row_name, 
+                                           lower_bound=-100, upper_bound=500, combined_plot=False):
     n = len(velocities)
-    fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))
     
     # Dictionnaire pour stocker les valeurs minimales
     min_values = {}
     
-    # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
-    if n == 1:
-        axes = [axes]
+    # Couleurs pour les différentes vitesses
+    colors = ['b', 'r', 'g', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+    
+    if combined_plot:
+        # Un seul graphique pour toutes les vitesses
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        
+        for i, velocity in enumerate(velocities):
+            # Pour chaque type de vitesse, identifier les galaxies anormales
+            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound, upper_bound)
+            print(f"Nombre de galaxies exclues pour {velocity}: {len(abnormal_galaxies)}")
+            
+            mean_square_values = []
+            for mass_ratio in mass_ratios:
+                column = f"{velocity}_{partial_row_name}_{mass_ratio}"
+                mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
+                mean_square_values.append(np.sqrt(mean_square))
+            
+            # Trouver le ratio de masse qui donne la valeur minimale
+            min_index = np.argmin(mean_square_values)
+            min_mass_ratio = mass_ratios[min_index]
+            min_value = mean_square_values[min_index]
+            
+            # Stocker dans le dictionnaire
+            min_values[velocity] = {
+                "mass_ratio": min_mass_ratio,
+                "mean_square_value": min_value
+            }
+            
+            # Tracer la courbe et marquer le minimum
+            color = colors[i % len(colors)]
+            ax.plot(mass_ratios, mean_square_values, color=color, 
+                   label=r"$v_{r,\text{"+velocity+r"}}$", linewidth=2)
+            ax.plot(min_mass_ratio, min_value, 'o', color=color, markersize=8, 
+                   markeredgecolor='black', markeredgewidth=1)
+        
+        ax.set_xlabel("m1 barre", fontsize=16)
+        ax.set_ylabel("Mean square velocity (km/s)", fontsize=16)
+        ax.set_title("Mean-square velocities depending on m1_barre", fontsize=18)
+        ax.legend(fontsize=14)
+        ax.grid(True, alpha=0.3)
+        
+    else:
+        # Graphiques séparés (comportement original)
+        fig, axes = plt.subplots(n, 1, figsize=(12, 5*n))
+        
+        # Si n == 1, axes n'est pas un tableau, donc on le met dans une liste pour la boucle
+        if n == 1:
+            axes = [axes]
 
-    for i, ax in enumerate(axes):
-        # Pour chaque type de vitesse, identifier les galaxies anormales
-        abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound)
-        print(f"Nombre de galaxies exclues pour {velocities[i]}: {len(abnormal_galaxies)}")
-        
-        mean_square_values = []
-        for mass_ratio in mass_ratios:
-            column = f"{velocities[i]}_{partial_row_name}_{mass_ratio}"
-            mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
-            mean_square_values.append(np.sqrt(mean_square))
-        
-        # Trouver le ratio de masse qui donne la valeur minimale
-        min_index = np.argmin(mean_square_values)
-        min_mass_ratio = mass_ratios[min_index]
-        min_value = mean_square_values[min_index]
-        
-        # Stocker dans le dictionnaire
-        min_values[velocities[i]] = {
-            "mass_ratio": min_mass_ratio,
-            "mean_square_value": min_value
-        }
-        
-        # Marquer le minimum sur le graphique
-        ax.plot(mass_ratios, mean_square_values, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
-        ax.plot(min_mass_ratio, min_value, 'ro', markersize=8, label=f"Min: {min_mass_ratio:.2f}")
-        
-        ax.set_xlabel("m1 barre")
-        ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)",fontsize=20)
-        ax.set_title(r"Mean-square of $V_{r,\text{"+velocities[i]+r"}}$ depending on m1_barre",fontsize=20)
-        ax.legend(fontsize=20)
-        ax.grid(True)
-        
-
+        for i, ax in enumerate(axes):
+            # Pour chaque type de vitesse, identifier les galaxies anormales
+            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound)
+            print(f"Nombre de galaxies exclues pour {velocities[i]}: {len(abnormal_galaxies)}")
+            
+            mean_square_values = []
+            for mass_ratio in mass_ratios:
+                column = f"{velocities[i]}_{partial_row_name}_{mass_ratio}"
+                mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
+                mean_square_values.append(np.sqrt(mean_square))
+            
+            # Trouver le ratio de masse qui donne la valeur minimale
+            min_index = np.argmin(mean_square_values)
+            min_mass_ratio = mass_ratios[min_index]
+            min_value = mean_square_values[min_index]
+            
+            # Stocker dans le dictionnaire
+            min_values[velocities[i]] = {
+                "mass_ratio": min_mass_ratio,
+                "mean_square_value": min_value
+            }
+            
+            # Marquer le minimum sur le graphique
+            ax.plot(mass_ratios, mean_square_values, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
+            ax.plot(min_mass_ratio, min_value, 'ro', markersize=8, label=f"Min: {min_mass_ratio:.2f}")
+            
+            ax.set_xlabel("m1 barre")
+            ax.set_ylabel(r"mean square of $v_{r,\text{"+velocities[i]+r"}}$ (km/s)",fontsize=20)
+            ax.set_title(r"Mean-square of $V_{r,\text{"+velocities[i]+r"}}$ depending on m1_barre",fontsize=20)
+            ax.legend(fontsize=20)
+            ax.grid(True)
+    
     plt.tight_layout()
     plt.show()
     

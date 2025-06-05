@@ -44,15 +44,16 @@ def mean_square_peculiar_velocity(df, column):
 # def mean_square_peculiar_velocity(df,column):
 #     return (df[column] ** 2).mean()
 
-def identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound=-100, upper_bound=500):
+def identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound, upper_bound, max_dix):
     """Identifie les galaxies qui ont une vitesse anormale pour n'importe quel ratio de masse, pour un type de vitesse donné"""
     abnormal_galaxies = set()
     
     for mass_ratio in mass_ratios:
-        column = f"{velocity}_{partial_row_name}_{mass_ratio}"
+        column_vel = f"{velocity}_{partial_row_name}_{mass_ratio}"
+        column_dis = f"dis_center_{partial_row_name}_{mass_ratio}"
         mask = ~df['Name'].str.startswith('CoM_')  # Exclut les centres de masse
         # Identifie les galaxies avec des vitesses anormales
-        abnormal = df[mask & ((df[column] < lower_bound) | (df[column] > upper_bound))]['Name']
+        abnormal = df[mask & ((df[column_vel] < lower_bound) | (df[column_vel] > upper_bound) | (df[column_dis] > max_dix) )]['Name']
         abnormal_galaxies.update(abnormal)
     
     return abnormal_galaxies
@@ -64,26 +65,44 @@ def mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies):
 
 
 
-def min_max_grid(f:callable, x0:np.ndarray, dr:np.ndarray, n_steps:int =10)->(float,float):
+def min_max_grid(f: callable, x0: np.ndarray, dr, n_steps: int = 10) -> (float, float):
     """Évalue f sur une grille dans l'hypercube x0 ± dr, et retourne le min et max.
 
     Args:
-        f (_type_): fonction à évaluer, qui prend un vecteur en entrée
+        f (callable): fonction à évaluer, qui prend un vecteur en entrée
         x0 (np.ndarray): vecteur numpy, point central
-        dr (np.ndarrray): vecteur numpy, variation maximale autour de x0 (même taille que x0)
-        n_steps (int, optional): nombre de points à tester par dimension (>=2). Defaults to 100.
+        dr: variation autour de x0. Peut être:
+            - np.ndarray: erreur symétrique (même taille que x0)
+            - tuple (dr_min, dr_max): erreurs asymétriques où dr_min et dr_max 
+              sont des np.ndarray de même taille que x0
+        n_steps (int, optional): nombre de points à tester par dimension (>=2). Defaults to 10.
     
-    Retrun:
-        (val_min, val_max) (float,float) : valeurs minimale et maximale de f dans l'hypercube
+    Return:
+        (val_min, val_max) (float, float): valeurs minimale et maximale de f dans l'hypercube
     """
     x0 = np.array(x0)
-    dr = np.array(dr)
     n = len(x0)
     
-    axes = [np.linspace(x0[i] - dr[i], x0[i] + dr[i], n_steps) for i in range(n)]
+    # Gestion des erreurs symétriques vs asymétriques
+    if isinstance(dr, tuple) and len(dr) == 2:
+        # Cas asymétrique: dr = (dr_min, dr_max)
+        dr_min, dr_max = dr
+        dr_min = np.array(dr_min)
+        dr_max = np.array(dr_max)
+        
+        if len(dr_min) != n or len(dr_max) != n:
+            raise ValueError("dr_min et dr_max doivent avoir la même taille que x0")
+            
+        axes = [np.linspace(x0[i] - dr_min[i], x0[i] + dr_max[i], n_steps) for i in range(n)]
+    else:
+        # Cas symétrique: dr est un array
+        dr = np.array(dr)
+        if len(dr) != n:
+            raise ValueError("dr doit avoir la même taille que x0")
+            
+        axes = [np.linspace(x0[i] - dr[i], x0[i] + dr[i], n_steps) for i in range(n)]
     
     points = itertools.product(*axes)
-
     values = [f(np.array(p)) for p in points]
     
     return min(values), max(values)

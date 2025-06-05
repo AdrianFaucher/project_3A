@@ -77,11 +77,11 @@ def display_velocities_distance(df,velocities:list[str],row_name:str,border:bool
         # ax.set_ylabel(r"$v_{r,\text{"+velocities[i]+r"}}$ (km/s)")
         ax.set_xlabel("Distance from CoM (Mpc)")
         ax.set_ylabel(r"$v_{r}$ (km/s)")
-        # ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
+        ax.set_title(r"$V_{r,\text{"+velocities[i]+r"}}$ depending on distance from "+row_name)
         ax.legend()
         ax.grid(True)
-        ax.set_xlim(0, 5)  # Limites de l'axe x entre 1 et 5
-        ax.set_ylim(-100, 300)  # Limites de l'axe y entre -25 et 20
+        ax.set_xlim(0, 15)  # Limites de l'axe x entre 1 et 5
+        ax.set_ylim(-400, 1000)  # Limites de l'axe y entre -25 et 20
 
     plt.tight_layout()
     plt.show()
@@ -132,8 +132,8 @@ def animated_velocities_distance(df, velocities: list[str], mass_ratios: np.ndar
         sc = ax.scatter([], [], label=rf"$v_{{r,\text{{{velocities[i]}}}}}$")
         scatters.append(sc)
 
-        ax.set_xlim(0, 5)
-        ax.set_ylim(-100, 500)
+        ax.set_xlim(0, 15)
+        ax.set_ylim(-400, 600)
         ax.set_xlabel("Distance from " + partial_row_name + " (Mpc)")
         ax.set_ylabel(rf"$v_{{r,\text{{{velocities[i]}}}}}$ (km/s)")
         ax.set_title(rf"$V_{{r,\text{{{velocities[i]}}}}}$ depending on distance from " + partial_row_name)
@@ -191,7 +191,7 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
 
 
 def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partial_row_name, 
-                                           lower_bound=-100, upper_bound=500, combined_plot=False):
+                                           lower_bound, upper_bound,max_dix, combined_plot=False):
     n = len(velocities)
     
     # Dictionnaire pour stocker les valeurs minimales
@@ -206,7 +206,7 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
         
         for i, velocity in enumerate(velocities):
             # Pour chaque type de vitesse, identifier les galaxies anormales
-            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound, upper_bound)
+            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound, upper_bound ,max_dix)
             print(f"Nombre de galaxies exclues pour {velocity}: {len(abnormal_galaxies)}")
             
             mean_square_values = []
@@ -249,7 +249,7 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
 
         for i, ax in enumerate(axes):
             # Pour chaque type de vitesse, identifier les galaxies anormales
-            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound)
+            abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound,max_dix)
             print(f"Nombre de galaxies exclues pour {velocities[i]}: {len(abnormal_galaxies)}")
             
             mean_square_values = []

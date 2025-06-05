@@ -4,28 +4,28 @@ import pandas as pd
 from tools import equatorial_to_cartesian
 
 # Load data
-galaxy_df = pd.read_csv('../data/test.csv')
-galaxy_df['pgc'] = galaxy_df['pgc'].astype(str)
+galaxy_df = pd.read_csv('../data/new_data.csv')
+galaxy_df['Name'] = galaxy_df['Name'].astype(str)
 # Filter out center-of-mass entries
-mask = ~galaxy_df['pgc'].str.startswith('CoM_')
+mask = ~galaxy_df['Name'].str.startswith('CoM_') & (galaxy_df['Name'])
 
 # Convert necessary columns to numeric
 r = pd.to_numeric(galaxy_df.loc[mask, "Dis"], errors='coerce').values
-ra = pd.to_numeric(galaxy_df.loc[mask, "RA_radians"], errors='coerce').values
-dec = pd.to_numeric(galaxy_df.loc[mask, "Dec_radians"], errors='coerce').values
-vlg = pd.to_numeric(galaxy_df.loc[mask, "v"], errors='coerce').values
-names = galaxy_df.loc[mask, "pgc"].values
+ra = pd.to_numeric(galaxy_df.loc[mask, "RA"], errors='coerce').values*(np.pi/180)
+dec = pd.to_numeric(galaxy_df.loc[mask, "Dec"], errors='coerce').values*(np.pi/180)
+V_h = pd.to_numeric(galaxy_df.loc[mask, "V_h"], errors='coerce').values
+names = galaxy_df.loc[mask, "Name"].values
 
 # Convert to Cartesian coordinates
 coord = equatorial_to_cartesian(r, ra, dec)
 x, y, z = coord[0], coord[1], coord[2]
 
 # Create the highlight mask for M83 and Cen A
-highlight_mask = np.array(["46957" in name or "48082" in name for name in names])
+highlight_mask = np.array(["CenA" in name or "M83" in name for name in names])
 
 # Find indices of Cen A and M83
-cen_a_idx = next((i for i, name in enumerate(names) if "46957" in name), None)
-m83_idx = next((i for i, name in enumerate(names) if "48082" in name), None)
+cen_a_idx = next((i for i, name in enumerate(names) if "CenA" in name), None)
+m83_idx = next((i for i, name in enumerate(names) if "M83" in name), None)
 
 if cen_a_idx is not None and m83_idx is not None:
     # Points for the plane: origin (0,0,0), Cen A, and M83
@@ -63,13 +63,13 @@ if cen_a_idx is not None and m83_idx is not None:
     fig1 = plt.figure(figsize=(10, 8))
     ax1 = fig1.add_subplot(projection='3d')
     
-    # Scatter plot with color mapping to VLG (3D)
-    sc1 = ax1.scatter(x, y, z, c=vlg, cmap='inferno', s=7, alpha=0.5)
+    # Scatter plot with color mapping to V_h (3D)
+    sc1 = ax1.scatter(x, y, z, c=V_h, cmap='inferno', s=7, alpha=0.5)
     
     # Highlight M83 and Cen A with larger triangles (3D)
     ax1.scatter(x[highlight_mask], y[highlight_mask], z[highlight_mask], 
-                c=vlg[highlight_mask], cmap='inferno', marker='^', s=50, 
-                vmin=vlg.min(), vmax=vlg.max(), alpha=1)
+                c=V_h[highlight_mask], cmap='inferno', marker='*', s=50, 
+                vmin=V_h.min(), vmax=V_h.max(), alpha=1)
     
     # Mark the origin (3D)
     ax1.scatter(0, 0, 0, color='black', marker="s", s=20)
@@ -77,8 +77,10 @@ if cen_a_idx is not None and m83_idx is not None:
     
     # Add labels for M83 and Cen A (3D)
     for xi, yi, zi, name in zip(x, y, z, names):
-        if "Cen A" in name or "M83" in name:
-            ax1.text(xi, yi, zi, name, fontsize=8, color='black')
+        if  "M83" in name:
+            ax1.text(xi, yi, zi, "M83", fontsize=8, color='black')
+        elif "CenA" in name:
+            ax1.text(xi, yi, zi, "CenA", fontsize=8, color='black')
     
     # Axis labels (3D)
     ax1.set_xlabel('X (Mpc)')
@@ -88,7 +90,7 @@ if cen_a_idx is not None and m83_idx is not None:
     
     # Add colorbar for 3D plot
     cbar1 = plt.colorbar(sc1, ax=ax1, pad=0.1)
-    cbar1.set_label('VLG (km/s)')
+    cbar1.set_label('V_h (km/s)')
     
     plt.tight_layout()
     plt.show()
@@ -97,13 +99,13 @@ if cen_a_idx is not None and m83_idx is not None:
     fig2 = plt.figure(figsize=(10, 8))
     ax2 = fig2.add_subplot(111)
     
-    # Scatter plot with color mapping to VLG (2D)
-    sc2 = ax2.scatter(proj_x, proj_y, c=vlg, cmap='inferno', s=7, alpha=0.5)
+    # Scatter plot with color mapping to V_h (2D)
+    sc2 = ax2.scatter(proj_x, proj_y, c=V_h, cmap='inferno', s=1, alpha=1)
     
     # Highlight M83 and Cen A with larger triangles (2D)
     ax2.scatter(proj_x[highlight_mask], proj_y[highlight_mask], 
-                c=vlg[highlight_mask], cmap='inferno', marker='^', s=50, 
-                vmin=vlg.min(), vmax=vlg.max(), alpha=1)
+                c=V_h[highlight_mask], cmap='inferno', marker='*', s=100, 
+                vmin=V_h.min(), vmax=V_h.max(), alpha=1)
     
     # Mark the origin (2D) - This is the projection of LG CoM which will be at (0,0)
     ax2.scatter(0, 0, color='black', marker="s", s=20)
@@ -111,9 +113,11 @@ if cen_a_idx is not None and m83_idx is not None:
     
     # Add labels for M83 and Cen A (2D)
     for px, py, name in zip(proj_x, proj_y, names):
-        if "Cen A" in name or "M83" in name:
-            ax2.text(px, py, name, fontsize=8, color='black')
-    
+        if "M83" in name:
+            ax2.text(px, py, "M83", fontsize=12, color='black')
+        if "CenA" in name:
+            ax2.text(px, py, "CenA", fontsize=12, color='black')    
+            
     # Axis labels (2D)
     ax2.set_xlabel('Projection on first basis vector (Mpc)')
     ax2.set_ylabel('Projection on second basis vector (Mpc)')
@@ -122,7 +126,7 @@ if cen_a_idx is not None and m83_idx is not None:
     
     # Add colorbar for 2D plot
     cbar2 = plt.colorbar(sc2, ax=ax2, pad=0.1)
-    cbar2.set_label('VLG (km/s)')
+    cbar2.set_label('V_h (km/s)')
     
     plt.tight_layout()
     plt.show()

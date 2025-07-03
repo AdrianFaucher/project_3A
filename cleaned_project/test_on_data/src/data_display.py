@@ -47,7 +47,7 @@ def display_hubble_MW(df:pd.DataFrame)->None:
     plt.grid(True)
     plt.show()
     
-def display_velocities_distance(df, velocities: list[str], row_name: str, border: bool = False):
+def display_velocities_distance(df, velocities: list[str], row_name: str, border: bool = False, colomn_name='Ra'):
     mask = ~df['Name'].str.startswith('CoM_')
     n = len(velocities)
     fig, axes = plt.subplots(n, 1, figsize=(12, 10*n))
@@ -57,7 +57,7 @@ def display_velocities_distance(df, velocities: list[str], row_name: str, border
         axes = [axes]
 
     # Préparer les données de couleur basées sur Dec
-    dec_values = pd.to_numeric(df.loc[mask, 'Dec'], errors='coerce').values
+    dec_values = pd.to_numeric(df.loc[mask, colomn_name], errors='coerce').values
     dec_values_clean = dec_values[~np.isnan(dec_values)]
     
     # Créer la normalisation et la colormap
@@ -233,7 +233,7 @@ def display_mean_squared_velocity(df:pd.DataFrame,velocities:np.ndarray[str],mas
 def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partial_row_name, 
                                            lower_bound, upper_bound,max_dix, combined_plot=False):
     n = len(velocities)
-    
+    mean_square_values=[[] for k in range(0,n)]
     # Dictionnaire pour stocker les valeurs minimales
     min_values = {}
     
@@ -249,16 +249,15 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
             abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocity, mass_ratios, partial_row_name, lower_bound, upper_bound ,max_dix)
             print(f"Nombre de galaxies exclues pour {velocity}: {len(abnormal_galaxies)}")
             
-            mean_square_values = []
             for mass_ratio in mass_ratios:
                 column = f"{velocity}_{partial_row_name}_{mass_ratio}"
                 mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
-                mean_square_values.append(np.sqrt(mean_square))
+                mean_square_values[i].append(np.sqrt(mean_square))
             
             # Trouver le ratio de masse qui donne la valeur minimale
-            min_index = np.argmin(mean_square_values)
+            min_index = np.argmin(mean_square_values[i])
             min_mass_ratio = mass_ratios[min_index]
-            min_value = mean_square_values[min_index]
+            min_value = mean_square_values[i][min_index]
             
             # Stocker dans le dictionnaire
             min_values[velocity] = {
@@ -268,7 +267,7 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
             
             # Tracer la courbe et marquer le minimum
             color = colors[i % len(colors)]
-            ax.plot(mass_ratios, mean_square_values, color=color, 
+            ax.plot(mass_ratios, mean_square_values[i], color=color, 
                    label=r"$v_{r,\text{"+velocity+r"}}$", linewidth=2)
             ax.plot(min_mass_ratio, min_value, 'o', color=color, markersize=8, 
                    markeredgecolor='black', markeredgewidth=1)
@@ -292,16 +291,15 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
             abnormal_galaxies = identify_abnormal_galaxies_per_velocity(df, velocities[i], mass_ratios, partial_row_name, lower_bound, upper_bound,max_dix)
             print(f"Nombre de galaxies exclues pour {velocities[i]}: {len(abnormal_galaxies)}")
             
-            mean_square_values = []
             for mass_ratio in mass_ratios:
                 column = f"{velocities[i]}_{partial_row_name}_{mass_ratio}"
                 mean_square = mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies)
-                mean_square_values.append(np.sqrt(mean_square))
+                mean_square_values[i].append(np.sqrt(mean_square))
             
             # Trouver le ratio de masse qui donne la valeur minimale
-            min_index = np.argmin(mean_square_values)
+            min_index = np.argmin(mean_square_values[i])
             min_mass_ratio = mass_ratios[min_index]
-            min_value = mean_square_values[min_index]
+            min_value = mean_square_values[i][min_index]
             
             # Stocker dans le dictionnaire
             min_values[velocities[i]] = {
@@ -310,7 +308,7 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
             }
             
             # Marquer le minimum sur le graphique
-            ax.plot(mass_ratios, mean_square_values, color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
+            ax.plot(mass_ratios, mean_square_values[i], color='b', label=r"$v_{r,\text{"+velocities[i]+r"}}$")
             ax.plot(min_mass_ratio, min_value, 'ro', markersize=8, label=f"Min: {min_mass_ratio:.2f}")
             
             ax.set_xlabel("m1 barre")
@@ -327,7 +325,7 @@ def display_mean_squared_velocity_consistent(df, velocities, mass_ratios, partia
     for velocity, info in min_values.items():
         print(f"Vitesse {velocity}: Ratio de masse optimal = {info['mass_ratio']:.4f}, Valeur minimale = {info['mean_square_value']:.2f} km/s")
     
-    return min_values
+    return mean_square_values
     
 def display_velocities_distance_hubble_regression(df,velocities:list[str],row_name:str,border:bool=False,force_origin:bool=True):
     mask = ~df['Name'].str.startswith('CoM_')

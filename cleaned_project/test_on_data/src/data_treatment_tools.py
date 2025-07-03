@@ -1,7 +1,7 @@
-import pandas as pd
+
 import numpy as np
 from src.tools import equatorial_to_cartesian, cartesian_to_equatorial, min_max_grid
-
+import pandas as pd
 
 def add_radian_columns(df:pd.DataFrame)->None:
     """convert the data to make theme usable :
@@ -125,12 +125,15 @@ def add_distances(df:pd.DataFrame,galaxy_center:str,grid_incertainty:bool=False)
     e_distance_center_max = float(df.loc[df["Name"]==galaxy_center,"e_Dis_max"].iloc[0])
     e_r_galaxy_min = df['e_Dis_min']
     e_r_galaxy_max = df['e_Dis_max']
+    e_r_galaxy= np.maximum(e_r_galaxy_min,e_r_galaxy_max)
+    e_distance_center= np.maximum(e_distance_center_max,e_distance_center_min)
     
-    e_dis_center_min = (e_r_galaxy_min * (r_galaxy+ distance_center * np.absolute(cos_theta)) + e_distance_center_min * (distance_center + r_galaxy * np.absolute(cos_theta)))/dis_center
-    e_dis_center_max = (e_r_galaxy_max * (r_galaxy+ distance_center * np.absolute(cos_theta)) + e_distance_center_max * (distance_center + r_galaxy * np.absolute(cos_theta)))/dis_center
+    e_dis_center = np.sqrt((e_r_galaxy*(r_galaxy-dis_center*cos_theta))**2 + (e_distance_center*(distance_center-r_galaxy*cos_theta))**2)/dis_center
+
     
-    df['e_dis_center_min_' + galaxy_center] = e_dis_center_min
-    df['e_dis_center_max_' + galaxy_center] = e_dis_center_max
+    df['e_dis_center_min_' + galaxy_center] = e_dis_center
+    df['e_dis_center_max_' + galaxy_center] = e_dis_center
+    
     
     if grid_incertainty:
         def calculate_min_max_distance_error(row):
@@ -193,22 +196,18 @@ def add_minor_infall_velocity(df:pd.DataFrame,galaxy_center:str,grid_incertainty
     
 
         if not grid_incertainty:
-            e_r1_barre_min = (rg*e_rgcenter_min+e_rg_min*rgcenter)/(rgcenter**2)
-            e_r1_barre_max = (rg*e_rgcenter_max+e_rg_max*rgcenter)/(rgcenter**2)
-            e_r2_barre_min = (distance_center*e_rgcenter_min+e_distance_center_min*rgcenter)/(rgcenter**2)
-            e_r2_barre_max = (distance_center*e_rgcenter_max+e_distance_center_max*rgcenter)/(rgcenter**2)
+            e_distance_center=np.maximum(e_distance_center_min,e_distance_center_max)
+            e_rg = np.maximum(e_rg_min,e_rg_max)
             
-            e_v_rad_min = (e_velocity_center * (distance_center + rg              * cos_theta)/rgcenter +
-                  e_vg                   * (rg              + distance_center * cos_theta)/rgcenter + 
-                  e_distance_center_min  * (velocity_center + vg              * cos_theta)          +
-                  e_rg_min               * (vg              + velocity_center * cos_theta)
-            )
-            e_v_rad_max = (e_velocity_center * (distance_center + rg              * cos_theta)/rgcenter +
-                      e_vg                  * (rg               + distance_center * cos_theta)/rgcenter + 
-                      e_distance_center_max * (velocity_center  + vg              * cos_theta)          +
-                      e_rg_max              * (vg               + velocity_center * cos_theta)
-            )
-            return pd.Series([v_rad,e_v_rad_min,e_v_rad_max])
+            dv_dvg= (rg- cos_theta*distance_center)/rgcenter
+            dv_dvc= (distance_center- cos_theta * rg)/rgcenter
+            dv_drc= (velocity_center-cos_theta*vg)/rgcenter - numerator* (distance_center-cos_theta*rg)/(rgcenter**2)
+            dv_drg= (vg-cos_theta*velocity_center)/rgcenter -numerator * (rg-cos_theta*distance_center)/(rgcenter**2)
+            
+
+            
+            e_v_rad = np.sqrt((e_vg*dv_dvg)**2 + (dv_dvc*e_velocity_center)**2 +(dv_drc*e_distance_center)**2+(dv_drg*e_rg)**2)
+            return pd.Series([v_rad,e_v_rad,e_v_rad])
         else:
             def f_minor_infall_bis(point:np.ndarray)->float:
                 """calculate the major infall velocity for parameters given in point
@@ -288,21 +287,19 @@ def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str, grid_incertaint
 
         
         if not grid_incertainty:
-            e_r1_barre_min = (rg*e_rgcenter_min+e_rg_min*rgcenter)/(rgcenter**2)
-            e_r1_barre_max = (rg*e_rgcenter_max+e_rg_max*rgcenter)/(rgcenter**2)
-            e_r2_barre_min = (distance_center*e_rgcenter_min+e_distance_center_min*rgcenter)/(rgcenter**2)
-            e_r2_barre_max = (distance_center*e_rgcenter_max+e_distance_center_max*rgcenter)/(rgcenter**2)
-
-            e_v_rad_min = (((e_velocity_center + e_vg * np.absolute(cos_theta))/np.absolute(denominator)) * rgcenter  +
-                       (np.absolute(numerator)*(e_r2_barre_min + e_r1_barre_min *  np.absolute(cos_theta))/np.square(denominator)) * rgcenter**2   
-            )
-            e_v_rad_max = (((e_velocity_center + e_vg *  np.absolute(cos_theta))/np.absolute(denominator)) * rgcenter  +
-                       (np.absolute(numerator)*(e_r2_barre_max + e_r1_barre_max *  np.absolute(cos_theta))/np.square(denominator)) * rgcenter**2   
-            )
-        
-            return pd.Series([v_rad,e_v_rad_min,e_v_rad_max])
+            e_distance_center=np.maximum(e_distance_center_min,e_distance_center_max)
+            e_rg = np.maximum(e_rg_min,e_rg_max)
+            
+            
+            dv_dvg  = (cos_theta/denominator) * rgcenter
+            dv_dvc  = rgcenter/denominator
+            dv_drg  = numerator * ( ( cos_theta/(denominator**2) ) *rgcenter + (1/denominator)*((rg-distance_center*cos_theta)/rgcenter) )
+            dv_drc  = numerator * ( ( -1/(denominator**2) ) *rgcenter + (1/denominator)*((distance_center-rg*cos_theta)/rgcenter) )
+            
+            e_v_rad = np.sqrt((e_vg*dv_dvg)**2 + (dv_dvc*e_velocity_center)**2 +(dv_drc*e_distance_center)**2+(dv_drg*e_rg)**2)
+            return pd.Series([v_rad,e_v_rad,e_v_rad])
         else:
-            def f_major_infall_bis(point:np.ndarray)->float:
+            def f_major_infall(point:np.ndarray)->float:
                 """calculate the major infall velocity for parameters given in point
     
                 Args:
@@ -326,13 +323,11 @@ def add_major_infall_velocity(df:pd.DataFrame,galaxy_center:str, grid_incertaint
             x0=[rg,distance_center,vg,velocity_center] # point central
             e_x0_min=[e_rg_min,e_distance_center_min,e_vg,e_velocity_center] #erreur autour du point
             e_x0_max=[e_rg_max,e_distance_center_max,e_vg,e_velocity_center]
-            min_f, max_f = min_max_grid(f_major_infall_bis,x0,(e_x0_min,e_x0_max)) # calcule du max et du min de major infall sur l'espace défini
+            min_f, max_f = min_max_grid(f_major_infall,x0,(e_x0_min,e_x0_max)) # calcule du max et du min de major infall sur l'espace défini
 
-            f_x0 = f_major_infall_bis(x0) 
+            f_x0 = f_major_infall(x0) 
             e_v_rad_min = f_x0 - min_f  # on veut les valeurs d'erreurs
             e_v_rad_max = max_f - f_x0
-            
-            
             
             return pd.Series([v_rad,e_v_rad_min,e_v_rad_max])
         
@@ -353,7 +348,7 @@ def new_CoM_procedure(df,galaxy1,galaxy2,m1_barre,row_name:str=None,grid_incerta
     add_CoM(df,galaxy1,galaxy2,m1_barre,row_name)
     add_angular_distance(df,galaxy_center=row_name)
     add_distances(df,galaxy_center=row_name,grid_incertainty=grid_incertainty)
-    add_major_infall_velocity(df,galaxy_center=row_name)
+    add_major_infall_velocity(df,galaxy_center=row_name,grid_incertainty=grid_incertainty)
     add_minor_infall_velocity(df,galaxy_center=row_name,grid_incertainty=grid_incertainty)
     print(row_name)
 

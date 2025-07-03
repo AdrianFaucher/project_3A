@@ -3,25 +3,30 @@ import numpy as np
 import pandas as pd
 from tools import equatorial_to_cartesian
 import matplotlib as mpl
+from matplotlib.colors import LogNorm
 
-mpl.rcParams['font.size'] = 12  # Taille générale
-mpl.rcParams['axes.titlesize'] = 16  # Taille des titres des graphiques
-mpl.rcParams['axes.labelsize'] = 14  # Taille des labels des axes
-mpl.rcParams['xtick.labelsize'] = 12  # Taille des étiquettes de l'axe x
-mpl.rcParams['ytick.labelsize'] = 12  # Taille des étiquettes de l'axe y
-mpl.rcParams['legend.fontsize'] = 12  # Taille de la légende
-mpl.rcParams['figure.titlesize'] = 18  # Taille du titre de la figure
+mpl.rcParams['font.size'] = 20  # Taille générale
+mpl.rcParams['axes.titlesize'] = 20  # Taille des titres des graphiques
+mpl.rcParams['axes.labelsize'] = 20  # Taille des labels des axes
+mpl.rcParams['xtick.labelsize'] = 20  # Taille des étiquettes de l'axe x
+mpl.rcParams['ytick.labelsize'] = 20  # Taille des étiquettes de l'axe y
+mpl.rcParams['legend.fontsize'] = 20  # Taille de la légende
+mpl.rcParams['figure.titlesize'] = 20  # Taille du titre de la figure
 # Load data
-galaxy_df = pd.read_csv('../data/data_CoM_CenA_M83_0.76_lg_filtre.csv')
+galaxy_df = pd.read_csv('../data/data_CoM_CenA_M83_0.77_lg_filtre_distance.csv')
 galaxy_df['Name'] = galaxy_df['Name'].astype(str)
 # Filter out center-of-mass entries
 mask = ~galaxy_df['Name'].str.startswith('CoM_') & (galaxy_df['Name'])
+
+ref_vh = galaxy_df.loc[mask, 'ref_V_h'].values
+ledas_mask = (ref_vh == 'LEDA')
+others_mask = ~ledas_mask
 
 # Convert necessary columns to numeric
 r = pd.to_numeric(galaxy_df.loc[mask, "Dis"], errors='coerce').values
 ra = pd.to_numeric(galaxy_df.loc[mask, "RA"], errors='coerce').values*(np.pi/180)
 dec = pd.to_numeric(galaxy_df.loc[mask, "Dec"], errors='coerce').values*(np.pi/180)
-V_h = pd.to_numeric(galaxy_df.loc[mask, "V_h"], errors='coerce').values
+V_h = np.absolute(pd.to_numeric(galaxy_df.loc[mask, "V_h"], errors='coerce').values)
 names = galaxy_df.loc[mask, "Name"].values
 
 # Convert to Cartesian coordinates
@@ -72,13 +77,19 @@ if cen_a_idx is not None and m83_idx is not None:
     ax1 = fig1.add_subplot(projection='3d')
     
     # Scatter plot with color mapping to V_h (3D)
-    sc1 = ax1.scatter(x, y, z, c=V_h, cmap='inferno', s=7, alpha=0.5)
-    
-    # Highlight M83 and Cen A with larger triangles (3D)
-    ax1.scatter(x[highlight_mask], y[highlight_mask], z[highlight_mask], 
-                c=V_h[highlight_mask], cmap='inferno', marker='*', s=50, 
-                vmin=V_h.min(), vmax=V_h.max(), alpha=1)
-    
+    norm = LogNorm(vmin=V_h.min(), vmax=V_h.max())
+
+    sc1 = ax1.scatter(x[ledas_mask], y[ledas_mask], z[ledas_mask], 
+                      c=V_h[ledas_mask], cmap='inferno', s=7, alpha=0.6, 
+                      marker='o', norm=norm)
+    ax1.scatter(x[others_mask], y[others_mask], z[others_mask], 
+                c=V_h[others_mask], cmap='inferno', s=7, alpha=0.6, 
+                marker='^', norm=norm)
+
+    # Pour la colorbar :
+    cbar1 = plt.colorbar(sc1, ax=ax1, pad=0.1)
+    cbar1.set_label('V_h (km/s)')
+
     # Mark the origin (3D)
     ax1.scatter(0, 0, 0, color='black', marker="s", s=20)
     ax1.text(0, 0, 0, "MW", fontsize=10)
@@ -97,8 +108,7 @@ if cen_a_idx is not None and m83_idx is not None:
     ax1.set_title('3D Distribution of Galaxies')
     
     # Add colorbar for 3D plot
-    cbar1 = plt.colorbar(sc1, ax=ax1, pad=0.1)
-    cbar1.set_label('V_h (km/s)')
+
     
     plt.tight_layout()
     plt.show()
@@ -108,12 +118,17 @@ if cen_a_idx is not None and m83_idx is not None:
     ax2 = fig2.add_subplot(111)
     
     # Scatter plot with color mapping to V_h (2D)
-    sc2 = ax2.scatter(proj_x, proj_y, c=V_h, cmap='inferno', s=20, alpha=1)
-    
-    # Highlight M83 and Cen A with larger triangles (2D)
-    ax2.scatter(proj_x[highlight_mask], proj_y[highlight_mask], 
-                c=V_h[highlight_mask], cmap='inferno', marker='*', s=250, 
-                vmin=V_h.min(), vmax=V_h.max(), alpha=1)
+    sc2 = ax2.scatter(proj_x[ledas_mask], proj_y[ledas_mask], 
+                      c=V_h[ledas_mask], cmap='inferno', s=20, alpha=1, 
+                      marker='o', norm=norm,label="EDD")
+    ax2.scatter(proj_x[others_mask], proj_y[others_mask], 
+                c=V_h[others_mask], cmap='inferno', s=20, alpha=1, 
+                marker='^', norm=norm,label="MUSE")
+
+    # Pour la colorbar :
+    cbar2 = plt.colorbar(sc2, ax=ax2, pad=0.1)
+    cbar2.set_label('V_h (km/s)')
+
     
     # Mark the origin (2D) - This is the projection of LG CoM which will be at (0,0)
     ax2.scatter(0, 0, color='black', marker="^", s=100)
@@ -127,16 +142,17 @@ if cen_a_idx is not None and m83_idx is not None:
             ax2.text(px, py, "CenA", fontsize=20, color='black')    
             
     # Axis labels (2D)
+    ax2.legend(loc='upper right', frameon=True, title="Data : ")
     ax2.set_xlabel('Mpc',fontsize="xx-large")
     ax2.set_ylabel('Mpc',fontsize="xx-large")
-    ax2.set_title('2D Projection onto Plane Defined by LG CoM, Cen A, and M83')
+    # ax2.set_title('2D Projection onto Plane Defined by LG CoM, Cen A, and M83')
     ax2.grid(True, alpha=0.3)
     
     # Add colorbar for 2D plot
-    cbar2 = plt.colorbar(sc2, ax=ax2, pad=0.1)
-    cbar2.set_label('V_h (km/s)')
+
     
     plt.tight_layout()
+    plt.savefig('../../../plot/galaxy_plot.png', dpi=300, bbox_inches='tight')
     plt.show()
 else:
     print("Error: Could not find Cen A or M83 in the dataset.")

@@ -65,7 +65,7 @@ def mean_square_peculiar_velocity_consistent(df, column, abnormal_galaxies):
 
 
 
-def min_max_grid(f: callable, x0: np.ndarray, dr, n_steps: int = 10) -> (float, float):
+def min_max_grid(f: callable, x0: np.ndarray, dr, n_steps: int = 15) :
     """Évalue f sur une grille dans l'hypercube x0 ± dr, et retourne le min et max.
 
     Args:
@@ -104,7 +104,7 @@ def min_max_grid(f: callable, x0: np.ndarray, dr, n_steps: int = 10) -> (float, 
     
     points = itertools.product(*axes)
     values = [f(np.array(p)) for p in points]
-    
+    values.append(f(x0))
     return min(values), max(values)
 
 

@@ -125,12 +125,14 @@ def add_distances(df:pd.DataFrame,galaxy_center:str,grid_incertainty:bool=False)
     e_distance_center_max = float(df.loc[df["Name"]==galaxy_center,"e_Dis_max"].iloc[0])
     e_r_galaxy_min = df['e_Dis_min']
     e_r_galaxy_max = df['e_Dis_max']
+    e_r_galaxy= max(e_r_galaxy_min,e_r_galaxy_max)
+    e_distance_center= max(e_distance_center_max,e_distance_center_min)
     
-    e_dis_center_min = (e_r_galaxy_min * (r_galaxy+ distance_center * np.absolute(cos_theta)) + e_distance_center_min * (distance_center + r_galaxy * np.absolute(cos_theta)))/dis_center
-    e_dis_center_max = (e_r_galaxy_max * (r_galaxy+ distance_center * np.absolute(cos_theta)) + e_distance_center_max * (distance_center + r_galaxy * np.absolute(cos_theta)))/dis_center
+    e_dis_center = np.sqrt((e_r_galaxy*(r_galaxy-dis_center*cos_theta))**2 + (e_distance_center*(distance_center-r_galaxy*cos_theta))**2)/dis_center
+
     
-    df['e_dis_center_min_' + galaxy_center] = e_dis_center_min
-    df['e_dis_center_max_' + galaxy_center] = e_dis_center_max
+    df['e_dis_center_min_' + galaxy_center] = e_dis_center
+    df['e_dis_center_max_' + galaxy_center] = e_dis_center
     
     if grid_incertainty:
         def calculate_min_max_distance_error(row):
